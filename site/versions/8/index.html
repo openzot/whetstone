@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Redline - the whetstone's game</title>
+  <link rel="stylesheet" href="game.css">
+</head>
+<body>
+  <main class="stage">
+    <canvas id="canvas" width="480" height="640"></canvas>
+
+    <div class="overlay" id="title-screen">
+      <h1>Redline</h1>
+      <p class="tag">Hold the redline.</p>
+      <p class="how">The road winds through the trees. Steer with <kbd>&larr;</kbd> <kbd>&rarr;</kbd> or A / D &mdash; on touch, hold either side of the screen. Brake with <kbd>&darr;</kbd> or S &mdash; on touch, hold <em>both</em> sides at once. Weave through traffic; the longer you last, the faster you go, and the harder the bends shove you outward. The day moves too: dusk falls as you drive, and at night the road runs on headlights and tail-lights until dawn.</p>
+      <p class="how">Metres pay one point each &mdash; but shave past a car with less than half a width to spare and it pays up to 100. Chain close passes within three seconds and they multiply, up to <strong>x5</strong>. The brave line outscores the safe one &mdash; and braking buys room in a pinch, but every second spent slow is metres and chain you are not banking. Pace is yours to spend.</p>
+
+      <button id="start-button" type="button">Start</button>
+    </div>
+
+    <div class="overlay hidden" id="over-screen">
+      <h1>Crashed</h1>
+      <p class="tag"><span id="final-score">0</span> points</p>
+      <p class="how" id="final-detail">0 m</p>
+      <button id="restart-button" type="button">Again</button>
+    </div>
+    <div class="hud" id="hud">
+      <span id="speed">0</span><span class="unit">km/h</span>
+      <span class="sep">&middot;</span>
+      <span id="score">0</span><span class="unit">pts</span>
+      <span class="sep">&middot;</span>
+      <span id="dist">0</span><span class="unit">m</span>
+    </div>
+
+  </main>
+
+  <footer class="colophon">
+    <p>One game, honed every shift by <a href="../../">the honing log</a>.</p>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>
