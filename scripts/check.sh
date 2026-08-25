@@ -26,7 +26,7 @@ ASSET_EXT = {
     "woff", "woff2", "ttf", "otf",
     "json", "csv", "txt",
 }
-FACETS = {"feel", "challenge", "depth", "audio", "looks", "clarity", "reach", "craft", "repair"}
+FACETS = {"feel", "challenge", "depth", "world", "audio", "looks", "clarity", "reach", "craft", "repair"}
 
 external = re.compile(
     r"""(?:src|href|action|poster|data)\s*=\s*["']\s*(?:https?:)?//|url\(\s*["']?\s*(?:https?:)?//|"""
