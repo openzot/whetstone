@@ -1,0 +1,413 @@
+# One shift of the whetstone: zot makes one pass across the stone - plays the
+# game, hones one facet, writes one ledger entry - and the workflow commits it
+# to main. Publishing is pages.yaml's job, dispatched from here - a shift that
+# is cancelled or runs out of clock must not be able to leave the site stale.
+# Runs every 30 minutes; a shift that is still going when the next is due
+# makes the next one wait.
+name: shift
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+# Queue rather than skip, and never cancel. A shift takes most of an hour, so
+# the next one usually arrives mid-pass: parking it means it starts the moment
+# the current shift ends, and the runner is never idle. Skipping instead would
+# idle until the next half-hour boundary and cost about a quarter of the
+# passes.
+#
+# The default `queue: single` is what we want, not a backlog: one shift waiting
+# is enough to keep the runner busy, and `queue: max` would bank up to a hundred
+# of them to be worked through later - a burst of near-identical shifts rather
+# than a steady stone.
+concurrency:
+  group: whetstone-shift
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write # to dispatch pages.yaml and the backmerge below
+
+jobs:
+  shift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      # A repository without the provider key (a fresh fork, or this one before
+      # the secret is set) idles rather than failing every half hour. The shift
+      # says so and goes home.
+      - name: Is the line staffed?
+        id: staffed
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::notice::no OPENROUTER_API_KEY secret - idle shift; see OPERATING.md"
+            echo "staffed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "staffed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # `ref` matters more than it looks. checkout defaults to github.sha, which
+      # is pinned when the *run is created* - and a shift that waited its turn
+      # in the concurrency group was created while the previous one was still
+      # working. It would check out the main from before that shift landed,
+      # spend half an hour honing a stale game against a stale
+      # site/ledger.json, and conflict on push with the pass the previous
+      # shift had already appended. Naming the branch fetches its tip at job
+      # start instead.
+      - uses: actions/checkout@v5
+        if: steps.staffed.outputs.staffed == 'true'
+        with:
+          ref: ${{ github.ref_name }}
+          # full history: the shift works on a branch of its own and lands it
+          # with a squash merge, and recovering a stranded branch needs the
+          # merge base to exist locally
+          fetch-depth: 0
+
+      # The shift works on a branch, never on main, and pushes a snapshot of
+      # the working tree to it every five minutes while the model works. A
+      # runner that dies - job timeout, cancellation, infrastructure - loses
+      # at most five minutes: the snapshots are already on the remote, and the
+      # next shift finds the stranded branch and folds it back in below.
+      - name: Open the shift branch
+        if: steps.staffed.outputs.staffed == 'true'
+        id: branch
+        run: |
+          set -u
+          git config user.name 'zot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          branch="shift/${GITHUB_RUN_ID}"
+          echo "name=$branch" >> "$GITHUB_OUTPUT"
+
+          # Recover work stranded by a shift that never got to merge: squash
+          # each leftover shift/* (or legacy rescue/shift-*) branch into this
+          # shift's working tree, so the tree carries the half-made pass
+          # forward and this shift's own merge takes it home. A branch that no
+          # longer merges cleanly is left where it is, loudly.
+          git fetch -q origin '+refs/heads/shift/*:refs/remotes/origin/shift/*' \
+                             '+refs/heads/rescue/*:refs/remotes/origin/rescue/*' 2>/dev/null || true
+          for stranded in $(git for-each-ref --format='%(refname:short)' \
+              refs/remotes/origin/shift refs/remotes/origin/rescue); do
+            if git merge --squash -q "$stranded" 2>/dev/null; then
+              if ! git diff --cached --quiet; then
+                git commit -q -m "shift: recovered stranded work from ${stranded#origin/}"
+                echo "recovered ${stranded#origin/}"
+              else
+                git reset -q --hard
+              fi
+              git push -q origin ":refs/heads/${stranded#origin/}" || true
+            else
+              git reset -q --hard
+              echo "::warning::${stranded#origin/} does not merge cleanly; left in place for a human"
+            fi
+          done
+
+          git checkout -q -b "$branch"
+          git push -q origin "HEAD:refs/heads/$branch"
+
+      - name: Keep snapshots flowing
+        if: steps.staffed.outputs.staffed == 'true'
+        env:
+          BRANCH: ${{ steps.branch.outputs.name }}
+        run: |
+          nohup bash -c '
+            while sleep 300; do
+              git add -A >/dev/null 2>&1 || continue
+              if ! git diff --cached --quiet 2>/dev/null; then
+                git commit -q -m "snapshot: $(date -u +%H:%M:%SZ)" 2>/dev/null \
+                  && git push -q origin "HEAD:refs/heads/$BRANCH" 2>/dev/null \
+                  || true
+              fi
+            done
+          ' > /tmp/snapshotter.log 2>&1 &
+          echo $! > /tmp/snapshotter.pid
+          disown
+
+      # the toolbox for the shift. zot plays the game before and after it
+      # touches anything - screenshots it, looks at it, drives its controls -
+      # so it needs a browser it can script (Playwright adds one plus the
+      # libraries headless Chromium needs) and a way to check the files are
+      # sound before it plays them.
+      - uses: actions/setup-node@v5
+        if: steps.staffed.outputs.staffed == 'true'
+        with:
+          node-version: "22"
+
+      - name: Install the toolbox
+        if: steps.staffed.outputs.staffed == 'true'
+        id: playwright
+        run: |
+          npm install -g playwright prettier htmlhint quick-lint-js
+          echo "version=$(playwright --version | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          # so `require('playwright')` resolves from wherever zot runs node
+          echo "NODE_PATH=$(npm root -g)" >> "$GITHUB_ENV"
+
+      - name: Cache the browser
+        if: steps.staffed.outputs.staffed == 'true'
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+          restore-keys: playwright-${{ runner.os }}-
+
+      - name: Install Chromium
+        if: steps.staffed.outputs.staffed == 'true'
+        run: |
+          playwright install --with-deps chromium
+          echo "playwright:     $(playwright --version)"
+          echo "chromium:       $(command -v chromium || command -v chromium-browser || echo none)"
+          echo "prettier:       $(prettier --version)"
+          echo "htmlhint:       $(htmlhint --version)"
+          echo "quick-lint-js:  $(quick-lint-js --version | head -1)"
+
+      - name: Hone the game
+        if: steps.staffed.outputs.staffed == 'true'
+        id: zot
+        uses: openzot/actions/run@v0
+        # a step timeout: a shift cut short here still lands below and is
+        # continued by the next shift (cache-sessions keeps the conversation).
+        # The cap is generous - most passes finish well inside it - because it
+        # only bites when a shift is slow, and the factories keep the same
+        # setup. The job cap is 110; landing, probing and shipping need about
+        # ten.
+        timeout-minutes: 85
+        continue-on-error: true
+        with:
+          orders: orders/hone.yaml
+          rerun: true # the standing order runs every shift
+          provider: openrouter
+          model: stealth/ox-alpha
+          # no max-iterations: zot's own default is the cap, and the step
+          # timeout above is the bound that actually decides a shift's length
+          cache-sessions: true
+          cache-key: whetstone-sessions
+          # zot's catalogue has never heard of this model, so it assumes the
+          # model cannot be shown images and withholds the `view` tool. This
+          # one can see, and the shift depends on it: a pass begins and ends
+          # by playing, the probe writes screenshots, and a screenshot zot
+          # cannot look at is one it has to decode pixel by pixel to guess at.
+          config: |
+            default_provider: openrouter
+            providers:
+              openrouter:
+                api_key: $OPENROUTER_API_KEY
+                models:
+                  stealth/ox-alpha:
+                    vision: true
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+
+      - name: Check the shape
+        if: steps.staffed.outputs.staffed == 'true'
+        id: check
+        continue-on-error: true
+        run: scripts/check.sh
+
+      # The static check says the shape holds; the probe says the blade is not
+      # broken: the game loads clean, keeps its fixed API, starts, survives
+      # being played, and resets. The order requires zot to run it before
+      # declaring success, so a failure here is a shift that did not follow
+      # its order - and the one rule above the others is that the game is
+      # playable at the end of every shift.
+      - name: Play the game
+        if: steps.staffed.outputs.staffed == 'true'
+        id: probe
+        continue-on-error: true
+        run: scripts/probe.sh
+
+      # The pass already lives on the shift branch - the snapshots saw to
+      # that. What is left is to land it on main as one clean commit: a squash
+      # merge, so five-minute snapshots never reach main's history. If main
+      # will not take it, the branch simply stays - it *is* the rescue - and
+      # the next shift folds it back in.
+      - name: Land the shift
+        if: always() && steps.staffed.outputs.staffed == 'true'
+        id: commit
+        env:
+          OUTCOME: ${{ steps.zot.outputs.outcome }}
+          SUMMARY: ${{ steps.zot.outputs.summary }}
+          BRANCH: ${{ steps.branch.outputs.name }}
+        run: |
+          # `set +e` against the runner's default of `bash -e`: a failed merge
+          # or push must reach the verdict at the bottom, not abort the step
+          # and strand half an hour of finished work.
+          set +e
+          set -u
+
+          # the branch step never ran (checkout failed, cancelled early):
+          # there is nothing on the runner worth saving, and nothing was lost
+          if [ -z "${BRANCH:-}" ]; then
+            echo "no shift branch; nothing to land"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          kill "$(cat /tmp/snapshotter.pid 2>/dev/null)" 2>/dev/null
+
+          # the final state of the tree, snapshotted like any other
+          git add -A
+          git diff --cached --quiet || git commit -q -m "snapshot: end of shift"
+          git push -q origin "HEAD:refs/heads/$BRANCH"
+
+          if git diff --quiet "origin/${GITHUB_REF_NAME}...HEAD" 2>/dev/null; then
+            echo "nothing to land"
+            git push -q origin ":refs/heads/$BRANCH" || true
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          pass="$(python3 -c 'import json; l=json.load(open("site/ledger.json")); e=l[-1] if l else None; print("pass %s (%s) - %s" % (e["shift"], e["facet"], e["change"][:80]) if e else "")' 2>/dev/null || true)"
+
+          if [ "$OUTCOME" = settled ] && [ -n "$pass" ]; then
+            subject="shift: ${pass}"
+          else
+            subject="shift: work in progress (${OUTCOME:-no outcome})"
+          fi
+
+          # Three attempts, because the two ways this fails want different
+          # answers. A push rejected after a clean squash means somebody
+          # landed between our fetch and our push - a genuine race, and trying
+          # again is exactly right. A squash that *conflicts* will conflict
+          # again however many times we ask, so that one leaves the loop at
+          # once and the branch stays as the rescue.
+          landed=false
+
+          for attempt in 1 2 3; do
+            git fetch -q origin "${GITHUB_REF_NAME}"
+            git checkout -q -B landing "origin/${GITHUB_REF_NAME}"
+
+            if ! git merge --squash -q "$BRANCH" 2>/dev/null; then
+              echo "squash of ${BRANCH} onto ${GITHUB_REF_NAME} conflicted (attempt ${attempt})"
+              git reset -q --hard
+              break
+            fi
+
+            if git diff --cached --quiet; then
+              echo "nothing to land after all"
+              landed=true
+              break
+            fi
+
+            git commit -q -m "$subject" -m "${SUMMARY:-}" -m "run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+            if git push -q origin "landing:${GITHUB_REF_NAME}"; then
+              landed=true
+              break
+            fi
+
+            echo "push rejected; ${GITHUB_REF_NAME} moved under us (attempt ${attempt})"
+            git checkout -q "$BRANCH"
+          done
+
+          if [ "$landed" = true ]; then
+            git push -q origin ":refs/heads/$BRANCH" || true
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "$subject"
+            exit 0
+          fi
+
+          # Could not land it. The work is already safe on the branch - every
+          # snapshot pushed as it happened - so nothing is lost: say so
+          # loudly, and the next shift's recovery folds it back in.
+          echo "::warning::${GITHUB_REF_NAME} would not take this shift; the work is preserved on ${BRANCH}"
+          echo "rescued=${BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "committed=false" >> "$GITHUB_OUTPUT"
+
+      # The conversation that honed the game is the more interesting record,
+      # so it ships too: the session is exported as a trajectory (chat-shaped,
+      # with the outcome beside it, and every screenshot the model looked at),
+      # the ledger entry and the game's files are attached, and it is appended
+      # to the Hugging Face dataset. Shipped whatever happened - a shift cut
+      # short is a row too, and the shift that continues it ships the whole
+      # chain - and skipped quietly when there is no HF_TOKEN, so a fork
+      # without one is still a complete factory.
+      - name: Ship the session to the dataset
+        if: always() && steps.staffed.outputs.staffed == 'true' && steps.zot.outputs.session-dir != ''
+        continue-on-error: true
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_DATASET: ${{ secrets.HF_DATASET }} # default openzot/whetstone
+          SESSION_DIR: ${{ steps.zot.outputs.session-dir }}
+          OUTCOME: ${{ steps.zot.outputs.outcome }}
+          CHECK: ${{ steps.check.outcome }}
+          PROBE: ${{ steps.probe.outcome }}
+          COMMITTED: ${{ steps.commit.outputs.committed }}
+          SCRUB: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "no HF_TOKEN; not shipping the session"
+            exit 0
+          fi
+          pip install -q huggingface_hub
+          python3 scripts/ship.py
+
+      # The commit above is pushed with GITHUB_TOKEN, and a push made with that
+      # token triggers no workflows - so the backmerge would never see the
+      # shift. workflow_dispatch is the one event the token may raise, so ask
+      # for the run explicitly rather than leaving `next` behind every shift.
+      - name: Backmerge to next
+        if: steps.commit.outputs.committed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run backmerge.yaml --repo "$GITHUB_REPOSITORY" --ref main
+
+      # Publish the shift. pages.yaml runs the shape check itself and refuses
+      # to deploy a broken tree, so this asks unconditionally rather than
+      # second-guessing it here; a broken tree stays committed so the next
+      # shift can repair it (the order says to, facet: repair).
+      - name: Publish the site
+        if: steps.commit.outputs.committed == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yaml --repo "$GITHUB_REPOSITORY" --ref main
+
+      - name: Shift report
+        if: always()
+        env:
+          STAFFED: ${{ steps.staffed.outputs.staffed }}
+          OUTCOME: ${{ steps.zot.outputs.outcome }}
+          CHECK: ${{ steps.check.outcome }}
+          PROBE: ${{ steps.probe.outcome }}
+          COMMITTED: ${{ steps.commit.outputs.committed }}
+          RESCUED: ${{ steps.commit.outputs.rescued }}
+        run: |
+          set +e
+          set -u
+
+          if [ "$STAFFED" != true ]; then
+            {
+              echo "## Shift"
+              echo
+              echo "Idle: no \`OPENROUTER_API_KEY\` secret. Add one and the next shift makes a pass."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "## Shift"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| zot | ${OUTCOME:-did not run} |"
+            echo "| shape check | ${CHECK} |"
+            echo "| playtest probe | ${PROBE} |"
+            echo "| committed | ${COMMITTED:-false} |"
+            if [ -n "${RESCUED:-}" ]; then
+              echo "| preserved on | \`${RESCUED}\` |"
+              echo
+              echo "> This shift's work would not land on \`${GITHUB_REF_NAME}\`. Nothing is lost:"
+              echo "> every snapshot is on \`${RESCUED}\`, and the next shift folds it back in"
+              echo "> automatically. Merge it by hand only if it says the merge conflicts."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # A shift that produced nothing publishable is a failed shift - and a
+          # rescued one produced something that is not published yet, so it
+          # fails too. Green here has to mean the pass is live and the blade
+          # still cuts, or nobody will go looking.
+          [ "$OUTCOME" = settled ] && [ "$CHECK" = success ] && [ "$PROBE" = success ] && [ -z "${RESCUED:-}" ]

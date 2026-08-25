@@ -1,0 +1,56 @@
+# zot work order - the whetstone's standing order, run every shift.
+#
+# Every run of this order is one pass across the stone: play the latest
+# version of the game, find the dullest facet, copy the version forward, make
+# exactly one improvement in the copy, prove it by playing again, and append
+# one entry to the ledger. The order never changes; what changes is the game
+# it sharpens, and site/ledger.json, which is how each shift knows every pass
+# that came before it. Every version is kept: site/versions/<n>/ is the game
+# after pass n, and older versions are never touched again.
+
+objective: |-
+  Make the whetstone's one game better in exactly one way, prove the
+  improvement by playing, publish it as the next version on the shelf, and
+  record the pass in the ledger.
+
+  Play before you touch. Run scripts/probe.sh (it plays the latest version),
+  look at every screenshot it writes with your own eyes, then drive that
+  version yourself with Playwright through its fixed API and its real
+  controls: start it, play it badly, play it well, crash, restart. Write down
+  what is dull - at least five candidate grievances spanning different facets
+  (AGENTS.md lists the facets and what each covers). To see how the edge has
+  moved, look at an earlier version or two with scripts/probe.sh <n>
+  --shots-only.
+
+  Then read site/ledger.json - every pass already made, with its facet,
+  grievance, change and proof. Strike out any candidate an earlier pass
+  already fixed, and any in the facet of the previous pass. From what is
+  left, pick the grievance the game most needs fixed - judged by how it
+  plays, not by how easy the fix is.
+
+  Then make the pass: with N-1 versions 0..N-1 on the shelf and N-1 entries
+  in the ledger, copy site/versions/<N-1>/ to site/versions/<N>/, make that
+  one improvement inside the copy, confined to its facet, and leave every
+  older version exactly as it was. Small and proved beats large and
+  asserted: a pass is done when playing the new version shows the thing you
+  named, and the entry's proof says what you saw.
+
+acceptance:
+  - 'site/ contains exactly index.html, ledger.json and versions/; site/versions/ contains exactly the folders 0 through N, where N is the number of entries in the ledger after this shift.'
+  - 'site/versions/<N>/ - this shift''s version - contains exactly three files - index.html, game.css and game.js - plus preview.png (the mid-play screenshot scripts/probe.sh records on a full run; do not craft it by hand) and an optional assets/ folder of media and data (textures, models, sounds, fonts, JSON; never code). It began as a copy of site/versions/<N-1>/ and differs from it only in service of the facet the new ledger entry names.'
+  - 'The version''s index.html holds only the document structure: it links the stylesheet with <link rel="stylesheet" href="game.css">, loads the script with <script src="game.js"></script>, contains no inline <style> or <script> block, and keeps a relative link back to the log (../../).'
+  - 'game.js still exposes the fixed API: window.game with name, state() returning at least {screen: "title"|"playing"|"over", score}, start(), and reset().'
+  - 'The game is entirely self-contained: no external requests of any kind, no build step, no framework, no npm. It runs when opened straight from disk (file://) and from GitHub Pages, is playable start to finish with keyboard and/or mouse/touch, shows its title and controls, and restarts without reloading the page.'
+  - 'site/ledger.json has exactly one new entry appended, with the fields shift (= N, the previous entry + 1), date (today, YYYY-MM-DD), facet (one from AGENTS.md), grievance, change and proof; the file is still valid JSON; and the new facet differs from the previous entry''s facet unless it is repair.'
+  - 'The change made this shift is confined to the facet the entry names, and no improvement a previous entry proved has been undone - unless this entry''s grievance says why the old proof no longer holds.'
+  - 'scripts/check.sh exits 0 and scripts/probe.sh exits 0, run after the change.'
+  - 'No older version folder and no file outside site/versions/<N>/ and site/ledger.json was changed - unless the gate was already failing when the run began, in which case the newest version was repaired first (facet: repair) and that repair is the pass.'
+
+constraints:
+  - 'One pass, one facet, one entry, one new version. Not two small improvements, not one that straddles facets.'
+  - 'Never break the blade: the latest version is playable at the end of the shift, whatever else happens. When a change and playability conflict, playability wins and the change shrinks.'
+  - 'Older versions are the ledger''s evidence: never edit, delete or renumber a folder under site/versions/ other than the one this shift creates.'
+  - 'Vanilla HTML, CSS and JavaScript only. No npm, no CDN, nothing fetched from the network. Art and sound are drawn in code (canvas, WebGL, SVG, CSS), synthesised with the Web Audio API, or shipped as files you generate yourself in the version''s assets/ folder, relative-linked. All behaviour stays in game.js: no code in assets/, no vendored libraries.'
+  - 'game.js is a classic script in an IIFE, not an ES module: no import/export, no type="module". A version''s three files together stay under about 200 KB and its assets/ under about 3 MB - the ceilings are fixed, so a pass that must add may first have to tighten.'
+  - 'Do not modify site/index.html, scripts/, orders/, or the workflows. Do not git commit, push or tag - the workflow commits the shift.'
+  - 'Play your own work: probe.sh before touching anything, and again on the new version before declaring success, looking at the screenshots both times; drive the game yourself with Playwright in between. A pass whose proof was not observed by playing is not a pass.'

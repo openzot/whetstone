@@ -1,0 +1,94 @@
+/* Redline - deliberately plain. Every pass earns its place in the ledger. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: #14161a;
+  color: #e6e8ec;
+  font-family: monospace;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+.stage {
+  position: relative;
+  width: min(480px, 100%);
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #0e1013;
+  border: 1px solid #333a44;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 24px;
+  background: rgba(14, 16, 19, 0.85);
+}
+
+.overlay.hidden { display: none; }
+
+.overlay h1 {
+  font-size: 2.4rem;
+  letter-spacing: 0.08em;
+  color: #e04a3a;
+}
+
+.tag { color: #a8adb6; }
+
+.how {
+  max-width: 36ch;
+  line-height: 1.5;
+  color: #7d838d;
+  font-size: 0.85rem;
+}
+
+kbd {
+  border: 1px solid #444b56;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+button {
+  font: inherit;
+  font-size: 1rem;
+  color: #14161a;
+  background: #e04a3a;
+  border: none;
+  padding: 8px 28px;
+  cursor: pointer;
+}
+
+.hud {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 1.1rem;
+  color: #a8adb6;
+  pointer-events: none;
+}
+
+.colophon {
+  font-size: 0.8rem;
+  color: #61666e;
+}
+
+.colophon a { color: #a8adb6; }

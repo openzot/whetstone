@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>zot whetstone - one game, honed to perfection</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { background: #14161a; color: #e6e8ec; font-family: monospace; }
+    body { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; line-height: 1.55; }
+    header { margin-bottom: 36px; }
+    h1 { color: #e04a3a; letter-spacing: 0.08em; margin-bottom: 4px; }
+    .sub { color: #7d838d; max-width: 60ch; }
+    .play {
+      display: inline-block; margin-top: 18px; padding: 10px 28px;
+      background: #e04a3a; color: #14161a; text-decoration: none; font-size: 1.05rem;
+    }
+    .play small { display: block; font-size: 0.75rem; }
+    .count { color: #61666e; font-size: 0.85rem; margin: 28px 0 20px; }
+    ol { list-style: none; }
+    li { border-left: 2px solid #333a44; padding: 0 0 26px 18px; position: relative; }
+    li::before { content: ""; position: absolute; left: -5px; top: 6px; width: 8px; height: 8px; background: #e04a3a; }
+    li.seed::before { background: #555c66; }
+    .head { color: #a8adb6; margin-bottom: 6px; }
+    .facet { color: #14161a; background: #e04a3a; padding: 0 6px; margin-right: 8px; }
+    li.seed .facet { background: #555c66; }
+    .date { color: #61666e; font-size: 0.85rem; }
+    .ver { float: right; }
+    .ver a { color: #a8adb6; }
+    .shot { float: right; margin: 0 0 10px 16px; }
+    .shot img { display: block; width: 168px; height: 105px; object-fit: cover; object-position: top; border: 1px solid #333a44; background: #0e1013; }
+    li { overflow: hidden; }
+    dl { display: grid; grid-template-columns: 9ch 1fr; gap: 2px 12px; font-size: 0.9rem; }
+    dt { color: #61666e; }
+    .note { color: #7d838d; font-size: 0.9rem; }
+    .foot { margin-top: 36px; color: #61666e; font-size: 0.8rem; }
+    .foot a { color: #a8adb6; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>zot whetstone</h1>
+    <p class="sub">A software factory that hones one game - <strong>Redline</strong> - toward
+    perfection. Every shift is one pass across the stone: play, find the dullest
+    facet, improve it, prove it, log it. Every version is kept, so you can play
+    the whole history of the edge.</p>
+    <a class="play" id="play-latest" href="versions/0/">Play the latest<small id="latest-label">version 0 - as cast</small></a>
+  </header>
+
+  <p class="count" id="count"></p>
+  <ol id="log"></ol>
+
+  <p class="foot">Made by <a href="https://github.com/openzot/whetstone">zot</a>, unattended.
+  Sibling factories: <a href="https://openzot.github.io/arcade/">the arcade</a>,
+  <a href="https://openzot.github.io/machinery/">the machinery</a>.</p>
+
+  <script>
+    (function () {
+      "use strict";
+      var esc = function (s) {
+        return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+        });
+      };
+      var row = function (e) {
+        return "<li>" +
+          '<a class="shot" href="versions/' + esc(e.shift) + '/"><img loading="lazy" alt="version ' + esc(e.shift) + ' mid-play" src="versions/' + esc(e.shift) + '/preview.png"></a>' +
+          '<p class="head"><span class="facet">' + esc(e.facet) + "</span>pass " + esc(e.shift) +
+          ' <span class="date">' + esc(e.date) + "</span>" +
+          ' <span class="ver"><a href="versions/' + esc(e.shift) + '/">play version ' + esc(e.shift) + "</a></span></p>" +
+          "<dl><dt>grievance</dt><dd>" + esc(e.grievance) + "</dd>" +
+          "<dt>change</dt><dd>" + esc(e.change) + "</dd>" +
+          "<dt>proof</dt><dd>" + esc(e.proof) + "</dd></dl></li>";
+      };
+      var seedRow = '<li class="seed">' +
+        '<a class="shot" href="versions/0/"><img loading="lazy" alt="version 0 mid-play" src="versions/0/preview.png"></a>' +
+        '<p class="head"><span class="facet">seed</span>version 0' +
+        ' <span class="ver"><a href="versions/0/">play version 0</a></span></p>' +
+        '<p class="note">As it came off the casting bench: rough on purpose. Everything above is a pass across the stone.</p></li>';
+      var show = function (ledger) {
+        ledger = Array.isArray(ledger) ? ledger : [];
+        var latest = ledger.length;
+        var link = document.getElementById("play-latest");
+        link.href = "versions/" + latest + "/";
+        document.getElementById("latest-label").textContent =
+          latest ? "version " + latest + " - after " + latest + (latest === 1 ? " pass" : " passes") : "version 0 - as cast";
+        document.getElementById("count").textContent =
+          latest ? latest + (latest === 1 ? " pass" : " passes") + ", newest first" : "no passes yet";
+        document.getElementById("log").innerHTML =
+          ledger.slice().reverse().map(row).join("") + seedRow;
+      };
+      fetch("ledger.json")
+        .then(function (r) { return r.json(); })
+        .then(show)
+        .catch(function () {
+          // file:// blocks fetch in some browsers; the page still stands
+          document.getElementById("count").textContent = "open over http(s) to read the log";
+          document.getElementById("log").innerHTML = seedRow;
+        });
+    })();
+  </script>
+</body>
+</html>
