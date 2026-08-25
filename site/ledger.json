@@ -1,1 +1,10 @@
-[]
+[
+  {
+    "shift": 1,
+    "date": "2026-08-25",
+    "facet": "challenge",
+    "grievance": "the road shoulder is invincible: holding one key pins the car just past lane 3's collision envelope, so my hold-right run sat there 25s for 1107m without traffic ever touching it - once you know the trick the game cannot be lost",
+    "change": "roadside clamp moved from 4px to 16px inside the painted edge on both sides, so the car can no longer ride the white line outside the outermost lanes' collision envelope; every lane now carries real crash risk",
+    "proof": "the same hold-right-for-25s play that ended 1107m in untouched now crashes at 280m after 7.7s, while honest weaving runs still reach 2107m/41s - the longest run observed either way - so survival finally demands steering, not knowing a trick"
+  }
+]
