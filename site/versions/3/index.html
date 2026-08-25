@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Redline - the whetstone's game</title>
+  <link rel="stylesheet" href="game.css">
+</head>
+<body>
+  <main class="stage">
+    <canvas id="canvas" width="480" height="640"></canvas>
+
+    <div class="overlay" id="title-screen">
+      <h1>Redline</h1>
+      <p class="tag">Hold the redline.</p>
+      <p class="how">The road winds through the trees. Steer with <kbd>&larr;</kbd> <kbd>&rarr;</kbd> or A / D &mdash; on touch, hold either side of the screen. Weave through traffic; the longer you last, the faster you go, and the harder the bends shove you outward.</p>
+      <button id="start-button" type="button">Start</button>
+    </div>
+
+    <div class="overlay hidden" id="over-screen">
+      <h1>Crashed</h1>
+      <p class="tag">You covered <span id="final-score">0</span> m.</p>
+      <button id="restart-button" type="button">Again</button>
+    </div>
+
+    <div class="hud" id="hud">
+      <span id="score">0</span> m
+    </div>
+  </main>
+
+  <footer class="colophon">
+    <p>One game, honed every shift by <a href="../../">the honing log</a>.</p>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>
