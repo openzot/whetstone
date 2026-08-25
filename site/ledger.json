@@ -6,5 +6,13 @@
     "grievance": "the road shoulder is invincible: holding one key pins the car just past lane 3's collision envelope, so my hold-right run sat there 25s for 1107m without traffic ever touching it - once you know the trick the game cannot be lost",
     "change": "roadside clamp moved from 4px to 16px inside the painted edge on both sides, so the car can no longer ride the white line outside the outermost lanes' collision envelope; every lane now carries real crash risk",
     "proof": "the same hold-right-for-25s play that ended 1107m in untouched now crashes at 280m after 7.7s, while honest weaving runs still reach 2107m/41s - the longest run observed either way - so survival finally demands steering, not knowing a trick"
+  },
+  {
+    "shift": 2,
+    "date": "2026-08-25",
+    "facet": "audio",
+    "grievance": "the game is utterly silent: an instrumented drive of version 1 never constructed a single AudioContext from title to crash to restart, so the speed ramp I could feel building had no voice and the crash that ended my hold-right run at 213m landed without a sound",
+    "change": "synthesised Web Audio, nothing else touched: a lazy AudioContext created on first gesture feeds a two-oscillator engine (sawtooth over a square sub through a lowpass) whose pitch sweeps ~65-120 Hz per gear of the speed ramp so each 80 px/s of acceleration audibly climbs then drops back; crashing cuts that engine near-instantly and fires a decaying filtered-noise crunch with a 150->38 Hz sine thump underneath; reset fades it all out. Every node is guarded so a missing or blocked AudioContext leaves the game exactly as playable as before, just silent",
+    "proof": "playing version 2, one context comes up running on the Start click where version 1 created none, and the engine pitch measured live under my own driving climbs 68.9 -> 74 -> 79.3 -> 84.5 -> 89.4 Hz across five seconds of play and reads 95.3 Hz by 268m - the ramp is now audible, not only felt; the same hold-right crash adds a buffer noise source plus thump oscillator while the engine gain drops to 0 within ~0.7s, Space restarts into a fresh engine pair (66.6/33.3 Hz) without reloading, and reset() returns to title with everything faded out"
   }
 ]
