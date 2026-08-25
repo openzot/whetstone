@@ -26,14 +26,20 @@ objective: |-
   grievance, change and proof. Strike out any candidate an earlier pass
   already fixed, and any in the facet of the previous pass. From what is
   left, pick the grievance the game most needs fixed - judged by how it
-  plays, not by how easy the fix is.
+  plays, not by how easy the fix is. The bar is a returning player noticing
+  the game got better: more believable motion and physics, sharper
+  decisions, a road with more world in it, feedback that makes a run
+  satisfying. AGENTS.md ("The direction of travel") says what better means
+  here; a pass that only tidies something no player would feel does not
+  clear the bar unless the gate itself is failing.
 
   Then make the pass: with N-1 versions 0..N-1 on the shelf and N-1 entries
   in the ledger, copy site/versions/<N-1>/ to site/versions/<N>/, make that
   one improvement inside the copy, confined to its facet, and leave every
-  older version exactly as it was. Small and proved beats large and
-  asserted: a pass is done when playing the new version shows the thing you
-  named, and the entry's proof says what you saw.
+  older version exactly as it was. Proved beats asserted, and focused beats
+  sprawling - but focused does not mean timid: size the pass to a shift and
+  make it count. A pass is done when playing the new version shows the
+  thing you named, and the entry's proof says what you saw.
 
 acceptance:
   - 'site/ contains exactly index.html, ledger.json and versions/; site/versions/ contains exactly the folders 0 through N, where N is the number of entries in the ledger after this shift.'
@@ -48,6 +54,7 @@ acceptance:
 
 constraints:
   - 'One pass, one facet, one entry, one new version. Not two small improvements, not one that straddles facets.'
+  - 'Every version is expected to be a better game than the one before, in a way a player would feel. Bug-sweeping and code tidying are for the repair and craft facets and are the exception, not the rule; the rule is making the game more real, more playable, more satisfying, with more world in it.'
   - 'Never break the blade: the latest version is playable at the end of the shift, whatever else happens. When a change and playability conflict, playability wins and the change shrinks.'
   - 'Older versions are the ledger''s evidence: never edit, delete or renumber a folder under site/versions/ other than the one this shift creates.'
   - 'Vanilla HTML, CSS and JavaScript only. No npm, no CDN, nothing fetched from the network. Art and sound are drawn in code (canvas, WebGL, SVG, CSS), synthesised with the Web Audio API, or shipped as files you generate yourself in the version''s assets/ folder, relative-linked. All behaviour stays in game.js: no code in assets/, no vendored libraries.'

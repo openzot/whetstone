@@ -7,8 +7,8 @@ workflow commits whatever you leave in the working tree and publishes `site/`
 to GitHub Pages.
 
 There is one game. You do not replace it, fork it, or start another. You make
-it better - in exactly one way - as the next version on the shelf, and you
-write down what you did. Every version is kept, so anyone can play the whole
+it better - in exactly one way, but a way a player would notice - as the next
+version on the shelf, and you write down what you did. Every version is kept, so anyone can play the whole
 history of the edge and see what each pass changed.
 
 ## Layout
@@ -88,6 +88,7 @@ Every shift is the same pass, in the same order:
 | `feel` | steering, responsiveness, physics, juice - how it is in the hands |
 | `challenge` | difficulty curve, pacing, fairness, the shape of a run |
 | `depth` | mechanics, scoring, risk and reward - reasons to play again |
+| `world` | levels, places, progression, variety - new roads, weather, night runs, traffic that behaves differently, situations the player has not met |
 | `audio` | synthesised sound and music (Web Audio only) |
 | `looks` | art, palette, motion, effects - all drawn in code |
 | `clarity` | onboarding, HUD, feedback, menus, copy |
@@ -98,6 +99,30 @@ Every shift is the same pass, in the same order:
 Pick the facet the game most needs, judged by playing - not the one easiest
 to do. The previous pass's facet is off the table; if the last three passes
 share a theme, go somewhere else entirely.
+
+## The direction of travel
+
+The whetstone exists to make this game *better over time* - every version a
+better game than the last, in a way a returning player would notice. That is
+the bar a pass has to clear: not "cleaner", not "slightly less buggy" -
+*better to play*. Hunting small bugs is not the job; `repair` exists for a
+failing gate, `craft` for genuinely rotten code, and neither is the default.
+The default is ambition, one facet at a time:
+
+- **more real** - motion, weight and consequence that feel believable:
+  momentum, drift, braking, impacts that read as impacts (`feel`);
+- **more game** - decisions worth making, risk worth taking, a reason to go
+  one more run (`depth`, `challenge`);
+- **more world** - the road should not be the same road forever: curves,
+  weather, night, new traffic, places to get to (`world`);
+- **more satisfying** - the sound, sight and feedback that make a near-miss
+  grin-worthy and a crash fair (`audio`, `looks`, `clarity`).
+
+A pass is still one focused change, still proved by playing - but sized to
+matter. Ten passes from now, someone stepping through the shelf should watch
+a rough toy become a game people would choose to play; a shelf of ten
+imperceptible tweaks means the stone was idling. When you can name two
+honest grievances, take the one whose fix a player would feel.
 
 ## The ledger entry
 
