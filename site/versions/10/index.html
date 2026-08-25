@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Redline - the whetstone's game</title>
+  <link rel="stylesheet" href="game.css">
+</head>
+<body>
+  <main class="stage">
+    <canvas id="canvas" width="480" height="640"></canvas>
+
+    <div class="overlay" id="title-screen">
+      <h1>Redline</h1>
+      <p class="tag">Hold the redline.</p>
+      <p class="how">The road winds through the trees, and you share it now: saloons amble along at their own pace, box vans crawl, sports cars come through quick - and some drivers indicate amber, then ease into the next lane, so watch the corners of the cars ahead. Steer with <kbd>&larr;</kbd> <kbd>&rarr;</kbd> or A / D &mdash; on touch, hold either side of the screen. Brake with <kbd>&darr;</kbd> or S &mdash; on touch, hold <em>both</em> sides at once. The longer you last, the faster you go, and the harder the bends shove you outward. The day moves too: dusk falls as you drive, and at night the road runs on headlights and tail-lights until dawn. Listen as well as look: a tight shave hisses past your flank, a live chain rings higher with every link, and one dry tick means the ring is about to die.</p>
+
+
+      <button id="start-button" type="button">Start</button>
+    </div>
+
+    <div class="overlay hidden" id="over-screen">
+      <h1>Crashed</h1>
+      <p class="tag"><span id="final-score">0</span> points</p>
+      <p class="how" id="final-detail">0 m</p>
+      <button id="restart-button" type="button">Again</button>
+    </div>
+    <div class="hud" id="hud">
+      <span id="speed">0</span><span class="unit">km/h</span>
+      <span class="sep">&middot;</span>
+      <span id="score">0</span><span class="unit">pts</span>
+      <span class="sep">&middot;</span>
+      <span id="dist">0</span><span class="unit">m</span>
+    </div>
+
+  </main>
+
+  <footer class="colophon">
+    <p>One game, honed every shift by <a href="../../">the honing log</a>.</p>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>
