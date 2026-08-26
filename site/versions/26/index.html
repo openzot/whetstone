@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Redline - the whetstone's game</title>
+  <link rel="stylesheet" href="game.css">
+</head>
+<body>
+  <main class="stage">
+    <canvas id="canvas" width="480" height="640"></canvas>
+
+    <div class="overlay" id="title-screen">
+      <h1>Redline</h1>
+      <div class="manual">
+        <div class="row">
+          <span class="k">steer</span>
+          <span class="v"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> or A / D &middot; on touch, drag &mdash; the car eases toward your thumb, hold it at an edge for full lock</span>
+        </div>
+        <div class="row">
+          <span class="k">brake</span>
+          <span class="v"><kbd>&darr;</kbd> or S sheds speed, <kbd>&uarr;</kbd> or W pushes past the ramp &middot; two fingers brake on touch</span>
+        </div>
+          <span class="v">the run opens easy by day and descends: first a tunnel, then dusk, then rain that dulls your grip, then true night &mdash; a lit downtown slides past, viaducts span open water; bends shove, a synth score swells with traffic and dies in the wreck &mdash; the longer you last, the faster it comes</span>
+
+        <div class="row">
+          <span class="k">drive</span>
+          <span class="v">the run opens easy by day and descends: first a tunnel, then dusk, then rain that dulls your grip, then true night &mdash; viaducts span open water; bends shove, a synth score swells with traffic and dies in the wreck &mdash; the longer you last, the faster it comes</span>
+
+
+
+        </div>
+        <div class="row">
+          <span class="k">traffic</span>
+          <span class="v">saloons amble, vans crawl, lorries wall you in, sports dart past; some signal amber, then ease across &middot; quiet stretches alternate with dense crests</span>
+        </div>
+        <div class="row">
+          <span class="k">score</span>
+          <span class="v">metres tick by on their own; shave close for up to 100 pts a pass, chained to &times;5 &mdash; a hiss lands, a rising ring climbs, one dry tick means the chain is dying; striped redline zones mark rich ground where a pass pays double</span>
+        </div>
+        <div class="row">
+          <span class="k">ghost</span>
+          <span class="v">hold a personal best and that run returns as a pale rival pacing you &mdash; braking costs ground to it, and beating it makes your line the next ghost</span>
+        </div>
+      </div>
+      <p class="record" id="title-best"></p>
+      <button id="start-button" type="button">Start</button>
+    </div>
+
+    <div class="overlay hidden" id="over-screen">
+      <h1>Crashed</h1>
+      <p class="tag"><span id="final-score">0</span> points</p>
+      <p class="record" id="over-best"></p>
+      <p class="how" id="final-detail">0 m</p>
+      <button id="restart-button" type="button">Again</button>
+    </div>
+    <div class="hud" id="hud">
+      <span id="speed">0</span><span class="unit">km/h</span>
+      <span class="sep">&middot;</span>
+      <span id="score">0</span><span class="unit">pts</span>
+      <span class="sep">&middot;</span>
+      <span id="dist">0</span><span class="unit">m</span>
+    </div>
+
+  </main>
+
+  <footer class="colophon">
+    <p>One game, honed every shift by <a href="../../">the honing log</a>.</p>
+  </footer>
+
+  <script src="game.js"></script>
+</body>
+</html>
