@@ -93,7 +93,7 @@ body {
 .manual .v {
   flex: 1;
   font-size: 0.72rem;
-  line-height: 1.36;
+  line-height: 1.45;
   color: #9aa0aa;
 }
 
@@ -147,31 +147,6 @@ button {
   color: #555c66;
   margin: 0 5px;
 }
-
-/* The BOOST chip: gold like the zones and pops - it appears only while there
- * is charge worth spending, and a tap commits the burn like a key press. */
-.boost {
-  position: absolute;
-  right: 10px;
-  bottom: 14px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  border: 1px solid #ffd75e;
-  background: rgba(20, 22, 26, 0.78);
-  color: #ffd75e;
-  font-size: 0.68rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-.boost.ready {
-  background: #ffd75e;
-  color: #14161a;
-  box-shadow: 0 0 14px rgba(255, 215, 94, 0.65);
-}
-
-.boost.hidden { display: none; }
 
 .colophon {
   font-size: 0.8rem;

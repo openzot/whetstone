@@ -333,32 +333,6 @@
   var BRAKE_DECEL = 160;      // px/s shed per second of braking
   var SPEED_FLOOR = 180;      // px/s - below launch pace, so braking visibly pays off
 
-  /* --- the slipstream and overdrive -----------------------------------------
-   * For twenty-three passes the only verb that touched pace was the brake,
-   * and the brake only ever gives ground back. Now the tow of another machine
-   * is worth having: tuck in close behind any vehicle - inside DRAFT_FAR of
-   * its tail, inside DRAFT_SIDE of its flank - and its wake charges an
-   * overdrive meter, hotter the closer you sit; bank a charge and spend it
-   * (ArrowUp or W, or the BOOST chip) and the car punches OD_TOP past what
-   * the ramp allows while the meter drains over OD_BURN seconds. Spent pace
-   * is borrowed, never kept: OD_DRAG sheds the excess back to the ramp's own
-   * line (rampV), and the brake cancels a burn on the spot. Charging asks you
-   * to sit where touching kills, and burning asks you to thread at speeds no
-   * lane change was tuned for - that risk IS the mechanic. Nothing here
-   * touches spawning, collisions, steering authority or any schedule - no
-   * payout that existed before this pass moves by a point; the burn simply
-   * ticks its own metres in at twice the survival rate while it lasts. */
-  var DRAFT_NEAR = 12;        // px behind a leader where the tow is strongest
-  var DRAFT_FAR = 150;        // px of wake behind a machine; past this, nothing
-  var DRAFT_SIDE = 16;        // px of lateral slack past nose-to-tail contact
-  var OD_CHARGE = 1.05;       // fraction of meter per second at a point-blank tow
-  var OD_DECAY = 1 / 14;      // banked charge bleeds off when you leave the wake
-  var OD_MIN = 0.25;          // least charge a press will spend
-  var OD_ACCEL = 175;         // px/s^2 of surge while the burn lasts
-  var OD_TOP = 175;           // px/s above the ramp line a burn can reach
-  var OD_BURN = 2.3;          // seconds a full meter lasts flat out
-  var OD_DRAG = 85;           // px/s^2 excess pace sheds back to the ramp line
-
   /* --- wet grip -------------------------------------------------------------
    * The brake above (and the steering and the bend-drift below) were tuned on
    * dry tarmac, and for eleven passes the weather could not argue: rainAt()
@@ -422,11 +396,6 @@
   var smoke = [];           // tyre smoke puffs, screen space
   var smokeT = 0;           // spawn throttle
   var laying = false;       // rubber going down this frame (read by state())
-  var rampV = 220;          // where the ramp alone would have you now
-  var od = 0;               // overdrive charge, 0..1 (read by state())
-  var burning = false;      // mid-burn? (read by state())
-  var draftK = 0;           // smoothed tow strength this frame, 0..1
-  var draftCar = null;      // the machine whose wake you are sitting in
 
 
   /* --- crash presentation ---------------------------------------------------
@@ -760,6 +729,55 @@
   }
 
 
+  /* --- viaducts: the road crosses open water --------------------------------
+   * Twenty-three passes put bends, a clock, storms, thinking traffic, tides,
+   * tunnels and rich ground on this highway, but it has never once met water:
+   * instrumented across every drive I made of version 23 (hands-off to 232 m,
+   * weaves, the bot's ten-kilometre shifts) the verge story is grass banding,
+   * reflector posts and tree scatter right out to the canvas edge in every
+   * single frame - pass 16's own grievance named "no bridge" among the missing
+   * places, and shipped only the tunnel half. A motorway that never crosses a
+   * river or a reservoir is a road through nowhere. bridgeAt(s) is a pure
+   * function of world distance exactly like the centreline, timeOfDay,
+   * rainAt, waveAt, tunnelAt and zoneAt: one 7700 px (~1155 m) cycle holding
+   * a single ~1250 px viaduct whose decks ease on over 70 px at each end.
+   * BR_SKED turns the cycle so the first crossing stands ~585 m down the road
+   * - met dry in full daylight, just past the first tunnel's exit - and the
+   * second lands at ~1747 m, breaking dawn over the water; laps after that
+   * arrive under whatever light and weather the out-of-step cycles serve
+   * (deliberately coprime with the 12000 px day, the 9000 px weather, the
+   * 7200 px structures, the 4800 px waves and the 4200 px zones, so the
+   * crossings keep moving through the timetable). Wherever a tunnel stands
+   * the crossing yields to it pointwise - k folds by (1 - tunnelAt(s).k) -
+   * so the two structure systems can never fight over the same stretch of
+   * road. On the deck the world drops away: both verges become open water
+   * that dims with the day clock and darkens with the rain, carrying drifting
+   * glints of sky and lamp light; concrete parapets hug both painted edges
+   * with abutment wing-walls standing at each end; expansion joints tick
+   * under the wheels every 130 px; the verge posts, marker plates, trees and
+   * their night glints all yield to the rails exactly as they do to tunnel
+   * walls, and once any darkness holds - night, storm or dusk - the rails
+   * throw back a pale sheen so the causeway reads at midnight. state() grew
+   * read-only bd beside tod/wx/wave/tn/zn; the title's drive row teaches the
+   * crossing in one clause. Nothing about collisions, spawning, steering,
+   * scoring rates or sound listens to any of it - bridges are places, not
+   * physics: rain keeps falling on a bridge because a bridge is outdoors. */
+  var BR_LEN = 7700;          // world px per crossing cycle (~1155 m)
+  var BR_SPAN = [1500, 2750]; // [start, end] px of the deck within a cycle
+  var BR_EASE = 70;           // px over which each end eases on and off
+  var BR_SKED = 5300;         // px the first crossing is pushed down the road
+
+  function bridgeAt(s) {
+    var p = (s + BR_SKED) % BR_LEN;
+    if (p <= BR_SPAN[0] - BR_EASE || p >= BR_SPAN[1] + BR_EASE) return { k: 0 };
+    var a = BR_SPAN[0], b = BR_SPAN[1], k;
+    if (p < a) k = smooth((p - (a - BR_EASE)) / BR_EASE);
+    else if (p <= b) k = 1;
+    else k = 1 - smooth((p - b) / BR_EASE);
+    return { k: k * (1 - tunnelAt(s).k) };   // a structure interrupts the span
+  }
+
+
   /* --- redline zones --------------------------------------------------------
    * Nineteen passes built a scoring act - shave close for up to 100 pts,
    * chained to x5 - but never a WHERE: closeBonus() reads only the clearance
@@ -820,7 +838,6 @@
       master.gain.value = 0.5;
       master.connect(ac.destination);
       buildAmbience();                  // the world's beds, born with the context
-      buildDraft();                     // the wake's own wind, the same birth
       buildMusic();                     // the run's score, the same birth
     } catch (e) {
       ac = null;
@@ -1164,106 +1181,6 @@
     }
   }
 
-  /* --- the slipstream has a voice -------------------------------------------
-   * A third continuous bed beside rain/wind/tyres: looped noise through a
-   * bandpass whose gain and pitch track draftK - the wake roars harder the
-   * deeper you tuck - plus two one-shots, the surge as a burn lights and the
-   * exhale as it dies. Same lazy context, same guards: no context, silence. */
-  var drft = null;      // { f, g } once built
-
-  function buildDraft() {
-    if (!ac || !master || drft) return;
-    try {
-      var buf = getNoise();
-      if (!buf) return;
-      var src = ac.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      var f = ac.createBiquadFilter();
-      f.type = "bandpass";
-      f.frequency.value = 700;
-      f.Q.value = 1.1;
-      var g = ac.createGain();
-      g.gain.value = 0.0001;
-      src.connect(f);
-      f.connect(g);
-      g.connect(master);
-      src.start();
-      drft = { f: f, g: g };
-    } catch (e) {
-      drft = null;
-    }
-  }
-
-  function tuneDraft() {
-    if (!ac || !drft) return;
-    try {
-      var t = ac.currentTime;
-      var k = Math.min(1, draftK + (burning ? 0.35 : 0));
-      drft.g.gain.setTargetAtTime(0.0001 + k * 0.20, t, k > 0.01 ? 0.06 : 0.15);
-      drft.f.frequency.setTargetAtTime(520 + k * 1100, t, 0.08);
-    } catch (e) {
-      /* stay silent rather than break */
-    }
-  }
-
-  // The wake's wind dies with everything else of yours at the crash.
-  function stopDraft(tau) {
-    if (!ac || !drft) return;
-    try {
-      drft.g.gain.setTargetAtTime(0.0001, ac.currentTime, tau);
-    } catch (e) {
-      /* already silent */
-    }
-  }
-
-  function surgeSound() {
-    if (!ac || !master) return;
-    try {
-      var now = ac.currentTime;
-      var buf = getNoise();
-      if (!buf) return;
-      var src = ac.createBufferSource();
-      src.buffer = buf;
-      var f = ac.createBiquadFilter();
-      f.type = "lowpass";
-      f.frequency.setValueAtTime(320, now);
-      f.frequency.exponentialRampToValueAtTime(4200, now + 0.55);
-      var g = ac.createGain();
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(0.30, now + 0.09);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
-      src.connect(f);
-      f.connect(g);
-      g.connect(master);
-      src.start(now, Math.random() * 0.4, 0.8);
-      src.stop(now + 0.8);
-    } catch (e) {
-      /* stay silent rather than break */
-    }
-  }
-
-  function exhaleSound() {
-    if (!ac || !master) return;
-    try {
-      var now = ac.currentTime;
-      var o = ac.createOscillator();
-      o.type = "triangle";
-      o.frequency.setValueAtTime(340, now);
-      o.frequency.exponentialRampToValueAtTime(150, now + 0.22);
-      var g = ac.createGain();
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(0.07, now + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
-      o.connect(g);
-      g.connect(master);
-      o.start(now);
-      o.stop(now + 0.3);
-    } catch (e) {
-      /* stay silent rather than break */
-    }
-  }
-
   /* --- the run's own score --------------------------------------------------
    * The world had a voice (pass 18) and the scoring loop had one (pass 10),
    * but the run itself never did: every drive of version 20 played out over
@@ -1500,11 +1417,6 @@
     distance = 0;       // metres covered
     totalS = 0;         // world px travelled - everything hangs off this
     speed = 220;        // your road speed, px/s - climbs over time
-    rampV = 220;        // the ramp's own line, which a burn may only visit
-    od = 0;             // no charge off the grid
-    burning = false;
-    draftK = 0;
-    draftCar = null;
     spawnTimer = 0.8;
     score = 0;          // points: metres survived plus close-pass bonuses
     closePasses = 0;
@@ -1555,7 +1467,6 @@
   function reset() {
     stopEngine(false);
     duckAmbience(true);               // the whole world fades out with the run
-    stopDraft(0.35);
     stopMusic(0.35);                  // and the score hands over quietly
     clearCrashFx();
     init();
@@ -1564,26 +1475,13 @@
     draw();
   }
 
-  // Spending the charge: one committed burst per press. The meter drains
-  // where it stands, the brake can cut it short, and until it is spent or
-  // bled the throttle has no word for "enough".
-  function tryBoost() {
-    if (screen !== "playing" || burning || od < OD_MIN) return;
-    burning = true;
-    surgeSound();
-    pops.push({ u: player.u, s: totalS + 40, text: "overdrive", t: 0.9 });
-  }
-
   // The wreck: state() flips to "over" right now, but the report is held
   // back ~0.75s so the crash is something you SEE - flash, shockwave, debris
   // and a shudder - instead of an instant menu swap. start()/reset() cancel
   // the pending report so it can never pop up over a fresh run.
   function crash() {
-    burning = false;                  // whatever was left of the burn is gone
-    draftK = 0;
     stopEngine(true);
     duckAmbience(false);              // your wind and tyres die; rain keeps on
-    stopDraft(0.08);                  // the wake's roar with them
     stopMusic(0.07);                  // the score dies with the machine, in ~70 ms
     crashSound();
     pushTrace(true);                  // the trace ends where your run ended
@@ -1900,35 +1798,15 @@
 
     if (keys.brake) {
       // standing water: less bite, so a storm pull sheds pace ~28% slower
-      var bite = BRAKE_DECEL * (1 - WET_BRAKE * wet) * dt;
-      speed = Math.max(SPEED_FLOOR, speed - bite);
-      rampV = Math.max(SPEED_FLOOR, rampV - bite);
-      if (burning) burning = false;     // standing on the pedal ends the burn
+      speed = Math.max(SPEED_FLOOR, speed - BRAKE_DECEL * (1 - WET_BRAKE * wet) * dt);
     } else {
       speed += 6 * dt;                  // the ramp: ever faster
-      rampV += 6 * dt;
-    }
-    // the burn: spend the meter for pace the ramp would never allow, then
-    // shed every borrowed px/s back down to the ramp's own line
-    if (burning) {
-      if (od > 0) {
-        od = Math.max(0, od - dt / OD_BURN);
-        speed = Math.min(rampV + OD_TOP, speed + OD_ACCEL * dt);
-      } else {
-        burning = false;
-        exhaleSound();
-      }
-    } else if (speed > rampV) {
-      speed = Math.max(rampV, speed - OD_DRAG * dt);   // borrowed pace returns
     }
     var ds = speed * dt;
 
     distance += ds * 0.15;              // px to metres, roughly
     totalS += ds;
-    // survival pays its base rate: 1 pt/m - doubled while overdrive burns,
-    // because the whole point of the tow was to buy metres worth having.
-    // Every rate that existed before this pass is untouched.
-    score += ds * 0.15 * (burning ? 2 : 1);
+    score += ds * 0.15;                 // survival pays its base rate: 1 pt/m
 
     // the record run rides along: sample this run's line for the shelf, then
     // place the ghost where its trace says it stood at this same wall-clock
@@ -1992,29 +1870,6 @@
     var lim = HALF - player.w / 2 - 16;
     if (player.u < -lim) player.u = -lim;
     if (player.u > lim) player.u = lim;
-
-    // the tow: find the machine whose wake you are sitting in, if any - the
-    // nearest body ahead within DRAFT_FAR whose flank you share - and let it
-    // charge the meter, hotter the closer you tuck. Out of a wake the banked
-    // charge bleeds away slowly; a burn spends it instead.
-    var bestTow = 0, towCar = null;
-    for (var ti = 0; ti < traffic.length; ti++) {
-      var tc = traffic[ti];
-      var relT = tc.s - totalS;
-      if (relT < 4 || relT > DRAFT_FAR) continue;
-      var latT = Math.abs(tc.u - player.u) - (tc.w + player.w) / 2;
-      if (latT > DRAFT_SIDE) continue;
-      var tow = (1 - Math.max(0, relT - DRAFT_NEAR) / (DRAFT_FAR - DRAFT_NEAR)) *
-        (1 - Math.max(0, latT) / (DRAFT_SIDE + 1));
-      if (tow > bestTow) { bestTow = tow; towCar = tc; }
-    }
-    draftK += (bestTow - draftK) *
-      Math.min(1, dt * (bestTow > draftK ? 9 : 5));
-    draftCar = bestTow > 0.02 ? towCar : null;
-    if (!burning) {
-      if (draftCar) od = Math.min(1, od + bestTow * OD_CHARGE * dt);
-      else od = Math.max(0, od - OD_DECAY * dt);
-    }
 
     // rubber: exactly the two moments this physics actually stresses the
     // tyres - standing on the brake from real pace, or steering out near its
@@ -2573,7 +2428,7 @@
     var p = 150;
     for (var k = Math.floor(minS / p); k * p <= maxS; k++) {
       var sp = k * p;
-      if (tunnelAt(sp).k > 0.02) continue;
+      if (tunnelAt(sp).k > 0.02 || bridgeAt(sp).k > 0.02) continue;
       var py = PLAYER_Y - (sp - totalS);
       var px = W / 2 + roadCenter(sp);
       ctx.fillStyle = "#aab0b8";
@@ -2587,7 +2442,7 @@
     ctx.textAlign = "center";
     for (var g = Math.max(1, Math.floor(minS / km)); g * km <= maxS; g++) {
       var sg = g * km;
-      if (tunnelAt(sg).k > 0.02) continue;
+      if (tunnelAt(sg).k > 0.02 || bridgeAt(sg).k > 0.02) continue;
       var yg = PLAYER_Y - (sg - totalS);
       var xg = W / 2 + roadCenter(sg) + HALF + 26;
       ctx.fillStyle = "#dde2e8";
@@ -2604,7 +2459,8 @@
     for (var m = Math.floor((minS - 400) / t); m * t <= maxS + 400; m++) {
       if (hash(m) < 0.25) continue;               // a clearing now and then
       var sl = m * t + hash(m * 3 + 1) * 200;
-      if (sl >= minS && sl <= maxS && tunnelAt(sl).k < 0.02) {
+      if (sl >= minS && sl <= maxS && tunnelAt(sl).k < 0.02 &&
+          bridgeAt(sl).k < 0.02) {
         var xl = W / 2 + roadCenter(sl) - HALF - 52 - hash(m * 7 + 2) * 60;
         var yl = PLAYER_Y - (sl - totalS);
         ctx.fillStyle = "#202b19";
@@ -2613,7 +2469,8 @@
         ctx.fill();
       }
       var sr = m * t + 165 + hash(m * 5 + 4) * 200;
-      if (sr >= minS && sr <= maxS && tunnelAt(sr).k < 0.02) {
+      if (sr >= minS && sr <= maxS && tunnelAt(sr).k < 0.02 &&
+          bridgeAt(sr).k < 0.02) {
         var xr = W / 2 + roadCenter(sr) + HALF + 52 + hash(m * 13 + 5) * 60;
         var yr = PLAYER_Y - (sr - totalS);
         ctx.fillStyle = "#1c2617";
@@ -2672,7 +2529,105 @@
    * mouth - heavy slabs from the canvas edges to the road opening. Returns
    * the mouths whose lintel (the beam across the road itself) must be drawn
    * later, over the cars: you pass UNDER it, so for a few frames it passes
-   * over you. */
+  /* The water a viaduct crosses: painted where the ground is, BEFORE the
+   * scenery and the tarmac, so posts, trees and road paint all sit over it
+   * exactly as they do over the moss. Two broad ribbons of open water ride
+   * both verges through each eased span, dimmed by the day clock and
+   * darkened by the rain, with drifting glints - sky and lamp light broken
+   * up on the surface by the same seeded hash that keeps the forest stable,
+   * so the sparkle streams with the world and is different water every lap.
+   * Purely paint: nothing here is consulted by physics or traffic. */
+  function drawWater(minS, maxS, nk, rn) {
+    var c0 = Math.floor((minS - BR_SPAN[1] - BR_EASE) / BR_LEN) - 1;
+    var c1 = Math.floor((maxS + BR_SPAN[1] + 2 * BR_EASE) / BR_LEN) + 1;
+    var col = mixHex("#2e4a52", "#0d141f", nk);
+    for (var c = c0; c <= c1; c++) {
+      var a = c * BR_LEN + BR_SPAN[0] - BR_SKED;
+      var b = c * BR_LEN + BR_SPAN[1] - BR_SKED;
+      if (b < minS - 40 || a > maxS + 40) continue;
+
+      ribbon(-HALF - 280, a - BR_EASE, b + BR_EASE, 300, col);
+      ribbon(HALF + 280, a - BR_EASE, b + BR_EASE, 300, col);
+      // rain roughens the surface: a cold darkening sheet on standing water
+      if (rn > 0.02) {
+        var wet = "rgba(10,16,26," + (rn * 0.30).toFixed(3) + ")";
+        ribbon(-HALF - 280, a - BR_EASE, b + BR_EASE, 300, wet);
+        ribbon(HALF + 280, a - BR_EASE, b + BR_EASE, 300, wet);
+      }
+      // glints: short pale dashes scattered across the surface, brighter
+      // under a night sky than under noon, drifting with the world
+      var gp = 46;
+      for (var g = Math.ceil((a - BR_EASE) / gp) * gp; g < b + BR_EASE; g += gp) {
+        var gy = PLAYER_Y - (g - totalS);
+        if (gy < -20 || gy > H + 20) continue;
+        var side = hash(g * 7 + 3) < 0.5 ? -1 : 1;
+        var gx = W / 2 + roadCenter(g) +
+          side * (HALF + 34 + hash(g * 11 + 5) * 210);
+        var gw = 7 + hash(g * 13 + 7) * 22;
+        ctx.globalAlpha = bridgeAt(g).k *
+          (0.07 + (0.06 + 0.17 * nk) * hash(g * 17 + 9));
+        ctx.fillStyle = nk > 0.55 ? "#c9d6ea" : "#bcd2d8";
+        ctx.fillRect(gx - gw / 2, gy, gw, 2);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /* The viaduct itself: concrete parapets hugging both painted edges through
+   * each span, abutment wing-walls standing at each end, and expansion joints
+   * ticking across the deck every 130 px - drawn between the road and the
+   * veils, so night and rain darken the concrete exactly like the world it
+   * stands in (the rails come back bright after the veils, like the zone
+   * gates and the reflector glints). No lintels: nothing passes overhead on
+   * a bridge. */
+  function drawBridges(minS, maxS, nk) {
+    var c0 = Math.floor((minS - BR_SPAN[1] - BR_EASE) / BR_LEN) - 1;
+    var c1 = Math.floor((maxS + BR_SPAN[1] + 2 * BR_EASE) / BR_LEN) + 1;
+    for (var c = c0; c <= c1; c++) {
+      var a = c * BR_LEN + BR_SPAN[0] - BR_SKED;
+      var b = c * BR_LEN + BR_SPAN[1] - BR_SKED;
+      if (b < minS - 40 || a > maxS + 40) continue;
+      var bkMid = bridgeAt((a + b) / 2).k;
+      if (bkMid <= 0.01 && bridgeAt(a).k <= 0.01 && bridgeAt(b).k <= 0.01) {
+        continue;                                   // fully yielded to a tunnel
+      }
+
+      // parapets: slim concrete bands outside both painted edges, paler than
+      // tunnel walls because they stand in the open, with an inner face line
+      var wall = mixHex("#767e88", "#232931", nk);
+      var face = mixHex("#b4bcc8", "#454d59", nk);
+      ribbon(-HALF - 11, a, b, 11, wall);
+      ribbon(HALF + 11, a, b, 11, wall);
+      ribbon(-HALF - 1.5, a, b, 1.5, face);
+      ribbon(HALF + 1.5, a, b, 1.5, face);
+
+      // expansion joints: thin dark bands right across the deck, following
+      // the centreline, ticking under the wheels as the world streams past
+      var jp = 130;
+      for (var j = Math.ceil(a / jp) * jp; j < b; j += jp) {
+        ribbon(0, j, j + 3.5, HALF - 3,
+          "rgba(14,17,22," + (0.42 * bridgeAt(j + 2).k).toFixed(3) + ")");
+      }
+
+      // abutments: low wing-walls at each end where the embankment hands the
+      // road to the bridge - the same masses a tunnel mouth stands, shorter
+      // and in daylight concrete, with a pale cap so the opening reads
+      var mouths = [a, b];
+      for (var mo = 0; mo < 2; mo++) {
+        var sm = mouths[mo];
+        var ym = PLAYER_Y - (sm - totalS);
+        if (ym < -30 || ym > H + 30) continue;
+        var xm = W / 2 + roadCenter(sm);
+        ctx.fillStyle = mixHex("#5a626c", "#171c23", nk);
+        ctx.fillRect(0, ym - 10, xm - HALF - 8, 20);
+        ctx.fillRect(xm + HALF + 8, ym - 10, W - xm - HALF - 8, 20);
+        ctx.fillStyle = "rgba(206,213,222,0.55)";
+        ctx.fillRect(xm - HALF - 8, ym + 8, 2 * HALF + 16, 2);
+      }
+    }
+  }
+
+
   function drawStructures(minS, maxS, nk) {
     var lintels = [];
     var c0 = Math.floor((minS - TUN_SKED) / TUN_LEN) - 1;
@@ -2756,6 +2711,10 @@
       ribbon(HALF, b * bandP, bEnd, 60, "rgba(0,0,0,0.055)");
     }
 
+    // open water under any viaduct ahead or behind: painted here so the
+    // scenery and every mark of paint sit over it like they sit on ground
+    drawWater(minS, maxS, nk, rn);
+
     drawScenery(minS, maxS);
 
     // wet tarmac: in the rain the surface darkens and goes glassy - same
@@ -2810,6 +2769,12 @@
     // The lintels come back for later - they pass OVER the cars.
     var tk = tunnelAt(totalS).k;           // how enclosed your stretch is
     var lintels = drawStructures(minS, maxS, nk);
+
+    // --- viaducts over open water -------------------------------------------
+    // Parapets, joints and abutments of any crossing in view; drawn here so
+    // the veils below darken them with the world. The deck itself is the
+    // road you are already reading; only what flanks it changed.
+    drawBridges(minS, maxS, nk);
 
     // --- night falls on the world, but not on its machines -----------------
     // Everything painted so far is daylight-lit; it dims under a veil that
@@ -2869,7 +2834,7 @@
       ctx.fillStyle = "#eef2f8";
       for (var k2 = Math.floor(minS / p2); k2 * p2 <= maxS; k2++) {
         var spk = k2 * p2;
-        if (tunnelAt(spk).k > 0.02) continue;
+        if (tunnelAt(spk).k > 0.02 || bridgeAt(spk).k > 0.02) continue;
         var pyk = PLAYER_Y - (spk - totalS);
         var pxk = W / 2 + roadCenter(spk);
         ctx.fillRect(pxk - HALF - 18, pyk - 7, 4, 3);
@@ -2901,6 +2866,25 @@
         ctx.globalAlpha = zk * 0.22;
         ribbon(zu - zh, zf0, zf1, 1.2, "#ffcf6e");
         ribbon(zu + zh, zf0, zf1, 1.2, "#ffcf6e");
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // the parapets keep their rails findable in the dark: two pale lines
+    // riding both edges through each span, lit by whatever light remains -
+    // night, storm spray or a dusk wash - so at midnight the causeway reads
+    // at a glance the way the reflector posts carry an open road
+    if (dk > 0.04) {
+      var bc0 = Math.floor((minS - BR_SPAN[1] - BR_EASE) / BR_LEN) - 1;
+      var bc1 = Math.floor((maxS + BR_SPAN[1] + 2 * BR_EASE) / BR_LEN) + 1;
+      ctx.globalAlpha = dk * 0.55;
+      for (var bb = bc0; bb <= bc1; bb++) {
+        var ba = bb * BR_LEN + BR_SPAN[0] - BR_SKED;
+        var bbb = bb * BR_LEN + BR_SPAN[1] - BR_SKED;
+        if (bbb < minS - 40 || ba > maxS + 40) continue;
+        if (bridgeAt(ba + 4).k <= 0.02) continue;
+        ribbon(-HALF - 11, ba, bbb, 2.5, "#d6dde6");
+        ribbon(HALF + 11, ba, bbb, 2.5, "#d6dde6");
       }
       ctx.globalAlpha = 1;
     }
@@ -2982,30 +2966,6 @@
     }
     drawCar(player.u, totalS, player.w, player.h, "#e04a3a", true, dk);
 
-    // --- the tow made visible -------------------------------------------------
-    // Sitting in a wake pulls pale streams off the leader's tail along your
-    // flanks - the same bargain as pass 23's rubber: what the physics does,
-    // the frame shows. Alpha flickers on the run clock so the air reads alive.
-    if (screen === "playing" && draftCar && draftK > 0.05) {
-      var dyL = PLAYER_Y - (draftCar.s - totalS);
-      if (dyL > -60 && dyL < PLAYER_Y + 60) {
-        var lx = W / 2 + roadCenter(draftCar.s) + draftCar.u;
-        var pxx = W / 2 + roadCenter(totalS) + player.u;
-        ctx.strokeStyle = "#dfe7f2";
-        ctx.lineWidth = 1.6;
-        ctx.globalAlpha = draftK *
-          (0.24 + 0.10 * hash(Math.floor(worldT * 24)));
-        for (var sd = -1; sd <= 1; sd += 2) {
-          ctx.beginPath();
-          ctx.moveTo(lx + sd * draftCar.w * 0.34, dyL + draftCar.h / 2 - 4);
-          ctx.quadraticCurveTo(
-            (lx + pxx) / 2 + sd * 16, (dyL + PLAYER_Y) / 2 - 6,
-            pxx + sd * player.w * 0.38, PLAYER_Y - player.h / 2 + 6);
-          ctx.stroke();
-        }
-        ctx.globalAlpha = 1;
-      }
-    }
 
     // --- the wet road answers every lamp -------------------------------------
     // Standing water turns each tail-light into a long vertical smear on the
@@ -3115,35 +3075,6 @@
         ctx.fillText(gm + " m vs your ghost", W - 12, 72);
       }
     }
-
-    // --- the overdrive gauge ---------------------------------------------------
-    // Bottom-left: amber as the wake charges it, gold and lit when full, red
-    // while a burn drains it. The meter is the invite; the title names the key.
-    if (boostBtn) {
-      boostBtn.classList.toggle("hidden",
-        !(screen === "playing" && !burning && od >= OD_MIN));
-      boostBtn.classList.toggle("ready", od >= 0.999 && !burning);
-    }
-    if (screen === "playing" && (od > 0.005 || burning)) {
-      var gw = 86, gx = 12, gy = H - 18;
-      ctx.fillStyle = "rgba(14,16,19,0.72)";
-      ctx.fillRect(gx - 4, gy - 14, gw + 8, 21);
-      ctx.font = "bold 9px monospace";
-      ctx.textAlign = "left";
-      ctx.fillStyle = "#7d838d";
-      ctx.fillText("BOOST", gx, gy - 5);
-      ctx.fillStyle = "#2a2f36";
-      ctx.fillRect(gx, gy, gw, 4);
-      ctx.fillStyle = burning ? "#ff5a3c" : od >= 0.999 ? "#ffd75e" : "#ffb44d";
-      ctx.fillRect(gx, gy, gw * od, 4);
-      if (od >= 0.999 && !burning) {
-        ctx.globalAlpha = 0.55 + 0.45 * Math.sin(worldT * 9);
-        ctx.strokeStyle = "#ffd75e";
-        ctx.lineWidth = 1;
-        ctx.strokeRect(gx - 1.5, gy - 1.5, gw + 3, 7);
-        ctx.globalAlpha = 1;
-      }
-    }
   }
 
 
@@ -3157,7 +3088,6 @@
       if (screen !== "playing") return;
       tuneEngine();
       tuneAmbience();                 // the beds follow the world each frame
-      tuneDraft();                    // and the wake roars with the tow
       tuneMusic();                    // and the score follows the wave crest
       draw();
     }
@@ -3171,12 +3101,6 @@
     // the brake: Down or S (or X) - held, it scrubs speed toward the floor
     if (ev.key === "ArrowDown" || ev.key === "s" || ev.key === "S" || ev.key === "x" || ev.key === "X") {
       keys.brake = true;
-      ev.preventDefault();              // keep the page from scrolling instead
-    }
-    // overdrive: one press, one burst - edge-triggered, so holding it never
-    // re-lights a burn that braking just cancelled
-    if (ev.key === "ArrowUp" || ev.key === "w" || ev.key === "W") {
-      tryBoost();
       ev.preventDefault();              // keep the page from scrolling instead
     }
     if ((ev.key === " " || ev.key === "Enter") && screen !== "playing") start();
@@ -3220,19 +3144,6 @@
   document.getElementById("start-button").addEventListener("click", start);
   document.getElementById("restart-button").addEventListener("click", start);
 
-  // The BOOST chip: the touch answer to ArrowUp - it answers only while
-  // there is charge worth spending, and a tap commits the burn like a key.
-  var boostBtn = document.getElementById("boost-button");
-  function boostPress(ev) {
-    ev.preventDefault();
-    resumeAudio();
-    tryBoost();
-  }
-  if (boostBtn) {
-    boostBtn.addEventListener("click", tryBoost);
-    boostBtn.addEventListener("touchstart", boostPress, { passive: false });
-  }
-
   window.game = {
     name: "Redline",
     state: function () {
@@ -3248,12 +3159,11 @@
         cars: traffic.length,                            // on the road now (proofs)
         tn: Math.round(tunnelAt(totalS).k * 100) / 100,  // 0 open .. 1 inside
         tn: Math.round(tunnelAt(totalS).k * 100) / 100,  // 0 open .. 1 inside
+        bd: Math.round(bridgeAt(totalS).k * 100) / 100,  // 0 embankment .. 1 crossing water
         zn: Math.round(zoneAt(totalS).k * 100) / 100,    // 0 outside .. 1 in the zone
         mu: Math.round((mus ? mus.k : 0) * 100) / 100,   // 0 sparse .. 1 full score
         mk: marks.length,                                // live rubber strips
         sk: laying ? 1 : 0,                              // rubber down now?
-        od: Math.round(od * 100) / 100,                  // overdrive charge 0..1
-        bo: burning ? 1 : 0,                             // mid-burn?
 
 
 
