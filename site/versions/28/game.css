@@ -1,0 +1,172 @@
+/* Redline - deliberately plain. Every pass earns its place in the ledger. */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: #14161a;
+  color: #e6e8ec;
+  font-family: monospace;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+.stage {
+  position: relative;
+  width: min(480px, 100%);
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #0e1013;
+  border: 1px solid #333a44;
+}
+
+/* The overlays are the canvas's own size, never more. If a screen ever
+ * grows past that it scrolls inside itself - content can spill toward
+ * the reader, but the way in (Start / Again) is always in the box. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  padding: 24px;
+  background: rgba(14, 16, 19, 0.88);
+  overflow-y: auto;
+}
+
+.overlay.hidden { display: none; }
+
+.overlay h1 {
+  font-size: 2.4rem;
+  letter-spacing: 0.08em;
+  color: #e04a3a;
+}
+
+.tag { color: #a8adb6; }
+
+.how {
+  max-width: 36ch;
+  line-height: 1.5;
+  color: #7d838d;
+  font-size: 0.85rem;
+}
+
+/* The manual: the teaching copy as scannable rows instead of one wall -
+ * a red label column, one mechanic per row, sized to fit beside Start
+ * on a phone-height screen. */
+.manual {
+  display: grid;
+  gap: 9px;
+  width: 100%;
+  max-width: 44ch;
+}
+
+.manual .row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  text-align: left;
+}
+
+.manual .k {
+  flex: 0 0 52px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+  color: #e04a3a;
+}
+
+.manual .v {
+  flex: 1;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #9aa0aa;
+}
+
+.manual em { color: #c9ced6; font-style: normal; }
+
+/* Phone-height screens: trim the frame before anything thinks of scrolling */
+@media (max-height: 560px) {
+  .overlay { padding: 12px; gap: 9px; }
+  .overlay h1 { font-size: 1.9rem; }
+  .manual { gap: 6px; }
+}
+
+/* Short viewports - portrait phones whose canvas box comes up small: slim
+ * the door's own frame so name, six rows, record line and Start all sit
+ * inside the box above the fold, nothing scrolled or hidden. */
+@media (max-height: 700px) {
+  .overlay { padding: 14px; gap: 10px; }
+  .overlay h1 { font-size: 2rem; }
+  .manual { gap: 6px; }
+}
+
+
+
+.record {
+  color: #ffd75e;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+/* no mark yet, no line: an empty paragraph must not spend the door's
+ * scarce height on a blank row */
+.record:empty { display: none; }
+
+
+kbd {
+  border: 1px solid #444b56;
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+button {
+  font: inherit;
+  font-size: 1rem;
+  color: #14161a;
+  background: #e04a3a;
+  border: none;
+  padding: 8px 28px;
+  cursor: pointer;
+}
+
+.hud {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-size: 1.1rem;
+  color: #e6e8ec;
+  pointer-events: none;
+}
+
+.hud .unit {
+  font-size: 0.72rem;
+  color: #7d838d;
+  margin-left: 3px;
+}
+
+.hud .sep {
+  color: #555c66;
+  margin: 0 5px;
+}
+
+.colophon {
+  font-size: 0.8rem;
+  color: #61666e;
+}
+
+.colophon a { color: #a8adb6; }
